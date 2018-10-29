@@ -1,0 +1,71 @@
+library(ggplot2)
+library(forecast)
+library(dplyr)
+library(plyr)
+library(lubridate)
+library(xts)
+library(prophet)
+
+traffic_df <- read.csv('C:/Users/Tirthankar/Desktop/Av/Time series_hack/train.csv')
+traffic_df$Datetime = as.POSIXct(strptime(traffic_df$Datetime, "%d-%m-%Y %H:%M"))
+glimpse(traffic_df)
+
+
+#........................... Without any Transformation ...............................
+
+df<-subset(traffic_df, select = -c(ID))
+colnames(df) <- c("ds","y")
+
+
+plot(y ~ ds, df, type = "l")
+m <- prophet(df)
+
+test_df <- read.csv('C:/Users/Tirthankar/Desktop/Av/Time series_hack/test.csv')
+test_df1<-subset(test_df, select = -c(ID))
+test_df1$Datetime = as.POSIXct(strptime(test_df1$Datetime, "%d-%m-%Y %H:%M"))
+colnames(test_df1) <- c("ds")
+
+forecast <- predict(m, test_df1)
+
+ID<-subset(test_df,select=c(ID))
+Count<-subset(forecast,select=c(yhat))
+
+result<-cbind(ID,Count)
+colnames(result) <- c("ID","Count")
+write.csv(result,'C:/Users/Tirthankar/Desktop/Av/Time series_hack/result1_prohet.csv')
+
+
+#......................  After Box-Cox Transformation ....................................
+
+traffic_df <- read.csv('C:/Users/Tirthankar/Desktop/Av/Time series_hack/train.csv')
+traffic_df$Datetime = as.POSIXct(strptime(traffic_df$Datetime, "%d-%m-%Y %H:%M"))
+glimpse(traffic_df)
+
+lam = BoxCox.lambda(traffic_df$Count, method = "loglik")
+traffic_df$y = BoxCox(traffic_df$Count, lam)
+
+df<-subset(traffic_df, select = -c(ID, Count))
+colnames(df) <- c("ds","y")
+
+plot(y ~ ds, df, type = "l")
+m <- prophet(df)
+test_df <- read.csv('C:/Users/Tirthankar/Desktop/Av/Time series_hack/test.csv')
+test_df1<-subset(test_df, select = -c(ID))
+test_df1$Datetime = as.POSIXct(strptime(test_df1$Datetime, "%d-%m-%Y %H:%M"))
+colnames(test_df1) <- c("ds")
+
+forecast <- predict(m, test_df1)
+plot(m, forecast)
+prophet_plot_components(m, forecast)
+
+inverse_forecast <- forecast
+inverse_forecast$yhat_untransformed = InvBoxCox(forecast$yhat, lam)
+
+ID<-subset(test_df,select=c(ID))
+Count<-subset(inverse_forecast,select=c(yhat_untransformed))
+
+result<-cbind(ID,Count)
+colnames(result) <- c("ID","Count")
+write.csv(result,'C:/Users/Tirthankar/Desktop/Av/Time series_hack/result2_prohet_bc.csv')
+
+
