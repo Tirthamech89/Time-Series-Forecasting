@@ -1,0 +1,39 @@
+library(ggplot2)
+library(forecast)
+library(dplyr)
+library(plyr)
+library(lubridate)
+library(xts)
+library(tseries)
+
+traffic_df <- read.csv('C:/Users/Tirthankar/Desktop/Av/Time series_hack/train.csv')
+traffic_df$Datetime = as.POSIXct(strptime(traffic_df$Datetime, "%d-%m-%Y %H:%M"))
+glimpse(traffic_df)
+
+df<-subset(traffic_df, select = -c(ID))
+ggplot(df, aes(Datetime, Count)) + geom_line() 
+
+count_ts = ts(df[, c('Count')])
+df$clean_cnt = tsclean(count_ts)
+
+ggplot() +  geom_line(data = df, aes(x = Datetime, y = clean_cnt)) + ylab('Count')
+
+
+count_ma = ts(na.omit(df$clean_cnt), frequency=24)
+decomp = stl(count_ma, s.window="periodic")
+deseasonal_cnt <- seasadj(decomp)
+plot(decomp)
+
+adf.test(deseasonal_cnt, alternative = "stationary")
+Acf(deseasonal_cnt, main='')
+Pacf(deseasonal_cnt, main='')
+
+fit<-auto.arima(deseasonal_cnt, seasonal=FALSE)
+tsdisplay(residuals(fit), lag.max=45, main='(1,1,1) Model Residuals')
+
+fit2 = arima(deseasonal_cnt, order=c(1,1,10))
+fit2
+tsdisplay(residuals(fit2), lag.max=15, main='Seasonal Model Residuals')
+
+fcast <- forecast(fit2, h=5112)
+plot(fcast)
